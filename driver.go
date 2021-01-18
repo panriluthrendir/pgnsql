@@ -1,31 +1,31 @@
 package main
 
 import (
-	"database/sql/driver"
+    "database/sql/driver"
     "errors"
     "fmt"
     "io"
-	"io/ioutil"
+    "io/ioutil"
     "strings"
 )
 
 type PgnDriver struct{}
 
 type PgnConn struct {
-	content []byte
+    content []byte
 }
 
 type PgnRows struct {
-	content []byte
-	cols    []string
-	reader  *PgnReader
-    cond *condition
-    value driver.Value
+    content []byte
+    cols    []string
+    reader  *PgnReader
+    cond    *condition
+    value   driver.Value
 }
 
 type condition struct {
-    col string
-    ctype   ctype
+    col   string
+    ctype ctype
 }
 
 type ctype int
@@ -34,25 +34,25 @@ const (
     EQ ctype = iota
 )
 
-var CTYPES = map[string]ctype {
+var CTYPES = map[string]ctype{
     "=": EQ,
 }
 
 func (driver *PgnDriver) Open(name string) (driver.Conn, error) {
-	content, err := ioutil.ReadFile(name)
+    content, err := ioutil.ReadFile(name)
 
-	if err != nil {
-		return nil, err
-	}
+    if err != nil {
+        return nil, err
+    }
 
-	return &PgnConn{content: content}, nil
+    return &PgnConn{content: content}, nil
 }
 
 func (c *PgnConn) Query(query string, args []driver.Value) (driver.Rows, error) {
     parts := strings.Split(query, " FROM")
     colPart := strings.Split(parts[0], "SELECT ")[1]
     cols := strings.Split(colPart, ",")
-    
+
     if len(args) > 1 {
         return nil, errors.New("Multiple conditions are not supported")
     }
@@ -66,59 +66,59 @@ func (c *PgnConn) Query(query string, args []driver.Value) (driver.Rows, error) 
         }
 
         return &PgnRows{
-		    cols:    cols,
-		    reader:  NewPgnReader(),
-		    content: c.content,
-            cond: cond,
-            value: args[0]}, nil
+            cols:    cols,
+            reader:  NewPgnReader(),
+            content: c.content,
+            cond:    cond,
+            value:   args[0]}, nil
     }
 
     return &PgnRows{
-		    cols:    cols,
-		    reader:  NewPgnReader(),
-		    content: c.content,
-            cond: nil,
-            value: nil}, nil
+        cols:    cols,
+        reader:  NewPgnReader(),
+        content: c.content,
+        cond:    nil,
+        value:   nil}, nil
 
 }
 
 func (c *PgnConn) Close() error {
-	return nil
+    return nil
 }
 
 func (r *PgnRows) Next(dest []driver.Value) error {
-	for {
+    for {
         if len(r.content) == 0 {
-		    return io.EOF
-	    }
+            return io.EOF
+        }
         read, err := r.reader.Read(r.content)
 
-	    if err != nil {
-		    return err
-	    }
+        if err != nil {
+            return err
+        }
 
-	    game := r.reader.games[len(r.reader.games)-1]
-	    r.content = r.content[read:]
+        game := r.reader.games[len(r.reader.games)-1]
+        r.content = r.content[read:]
 
         if applicable(&game, r.cond, r.value) {
             for i := 0; i < len(r.cols); i++ {
-		        for k, v := range game.headers {
-			        if r.cols[i] == k {
-				        dest[i] = driver.Value(v)
-			        }
-		        }
-	        }
-	        return nil
+                for k, v := range game.headers {
+                    if r.cols[i] == k {
+                        dest[i] = driver.Value(v)
+                    }
+                }
+            }
+            return nil
         }
     }
 }
 
 func (r *PgnRows) Columns() []string {
-	return r.cols
+    return r.cols
 }
 
 func (r *PgnRows) Close() error {
-	return nil
+    return nil
 }
 
 // Not implemented
@@ -127,13 +127,13 @@ func (c *PgnConn) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (c *PgnConn) Begin() (driver.Tx, error) {
-	return c, fmt.Errorf("Begin method not implemented")
+    return c, fmt.Errorf("Begin method not implemented")
 }
 
 func (c *PgnConn) Commit() error {
-	return fmt.Errorf("Commit method not implemented")
+    return fmt.Errorf("Commit method not implemented")
 }
 
 func (c *PgnConn) Rollback() error {
-	return fmt.Errorf("Rollback method not implemented")
+    return fmt.Errorf("Rollback method not implemented")
 }
